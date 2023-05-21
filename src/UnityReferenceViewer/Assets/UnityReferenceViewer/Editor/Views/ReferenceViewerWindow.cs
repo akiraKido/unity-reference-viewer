@@ -11,27 +11,31 @@ https://opensource.org/licenses/mit-license.php
 
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
 using UnityEditor;
+using UnityEngine;
+using UnityReferenceViewer.Editor.ValueObjects;
 
-namespace ReferenceViewer
+namespace UnityReferenceViewer.Editor.Views
 {
 	public class ReferenceViewerWindow : EditorWindow
 	{
 		private const string HeaderLabelTitle = "【Find References In Project - Result】";
 
-		public static void CreateWindow(IEnumerable<SearchResult> result)
+		public static void CreateWindow(SearchResult result)
 		{
 			var window = GetWindow<ReferenceViewerWindow>("ReferenceViewer2");
 			window.SetResult(result);
 		}
-
+		
+		private string? _additionalInformation;
 		private IReadOnlyList<SearchResultView>? _resultViews;
 		private Vector2 _scrollPosition = Vector2.zero;
 
-		public void SetResult(IEnumerable<SearchResult> result)
+		public void SetResult(SearchResult result)
 		{
-			_resultViews = result.Select(it => new SearchResultView(it)).ToArray();
+			_resultViews = result.SearchResults.Select(it => new SearchResultView(it)).ToArray();
+			_additionalInformation = result.AdditionalInformation;
+			
 			_scrollPosition = Vector2.zero;
 			Repaint();
 		}
@@ -60,23 +64,22 @@ namespace ReferenceViewer
 			EditorGUILayout.EndScrollView();
 
 			EditorGUIUtility.SetIconSize(iconSize);
-
-			// TODO
-
+			
+			DisplayAdditionalInformation();
+		}
+		
+		private void DisplayAdditionalInformation()
+		{
 			// Spotlightの時のみヘルプ情報
 			// Help information only for Spotlight.
-			// if (result.Type == Result.SearchType.OSX_Spotlight)
-			// {
-			// 	EditorGUILayout.Separator();
-			// 	EditorGUILayout.HelpBox(
-			// 		"Assets内のインデックスが作られていない場合など、正しく検索できないことがあります。" +
-			// 		"正確に検索するにはGrep版を使用して下さい。\n\n" +
-			// 		"Spotlight is not be able to search correctly, for example, when an file index in Assets is not created. " +
-			// 		"Please use Grep version to search exactly.",
-			// 		MessageType.Info
-			// 	);
-			// 	EditorGUILayout.Separator();
-			// }
+			if (_additionalInformation == null)
+			{
+				return;
+			}
+			
+			EditorGUILayout.Separator();
+			EditorGUILayout.HelpBox(_additionalInformation, MessageType.Info);
+			EditorGUILayout.Separator();
 		}
 	}
 }

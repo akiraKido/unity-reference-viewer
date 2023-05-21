@@ -7,10 +7,14 @@ This software is released under the MIT License.
 https://opensource.org/licenses/mit-license.php
 */
 
+using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEngine;
+using UnityReferenceViewer.Editor.Models;
+using UnityReferenceViewer.Editor.ValueObjects;
 
-namespace ReferenceViewer
+namespace UnityReferenceViewer.Editor.Views
 {
     /// <summary>
     /// 環境ごとに実行内容を切り分け
@@ -21,8 +25,6 @@ namespace ReferenceViewer
         // =============================================================================================================
         // 設定ファイルのロード
 
-        public const string AssetPathFromPluginRoot = "Editor/ReferenceViewerMenu.cs";
-
         private static ExcludeSettings _settings;
 
         private static bool LoadSettings()
@@ -30,32 +32,33 @@ namespace ReferenceViewer
             // インスタンスを経由して自身のファイルパスを取得
             // Retrieve its own file path via instance.
             var window = GetWindow<ReferenceViewerMenu>();
-            string path = window.GetSettingFilePath();
+            _settings = window.GetSettingFile();
             window.Close();
 
-            _settings = AssetDatabase.LoadAssetAtPath<ExcludeSettings>(path);
             if (_settings != null)
             {
-	            return true;
+                return true;
             }
-            
-            UnityEngine.Debug.LogError("[ReferenceViewer] Failed to load exclude setting file.");
+
+            Debug.LogError("[ReferenceViewer] Failed to load exclude setting file.");
             return false;
         }
 
-        private string GetSettingFilePath()
+        private ExcludeSettings GetSettingFile()
         {
-            var thisObject = MonoScript.FromScriptableObject(this);
+	        var thisObject = MonoScript.FromScriptableObject(this);
             var path = AssetDatabase.GetAssetPath(thisObject);
-            return path.Replace(AssetPathFromPluginRoot, ExcludeSettings.AssetName);
+            var packageDirectory = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(path)));
+            return ExcludeSettings.Load(packageDirectory);
         }
 
-        private static void DoSearch(IReferenceFinder referenceFinder)
+        private static void DoSearch(IReferenceFinder referenceFinder, string additionalInfo = null)
         {
             var finder = new ReferenceFinder(referenceFinder, _settings.GetExcludeExtentions());
-            var result = Selection.assetGUIDs
-	            .Select(finder.FindReferencedFiles)
-	            .ToArray();
+            var searchItems = Selection.assetGUIDs
+                .Select(finder.FindReferencedFiles)
+                .ToArray();
+            var result = new SearchResult(searchItems, additionalInfo);
             ReferenceViewerWindow.CreateWindow(result);
         }
 
@@ -82,6 +85,7 @@ namespace ReferenceViewer
             {
                 return;
             }
+
             DoSearch(new MacOsSpotlightReferenceFinder());
         }
 
@@ -102,16 +106,17 @@ namespace ReferenceViewer
         [MenuItem("Assets/Find References In Project/By Grep", false, 26)]
         public static void FindReferencesByGrep()
         {
-	        if (!LoadSettings())
-	        {
-		        return;
-	        }
-	        
-	        DoSearch(new MacOsGrepReferenceFinder(_settings.GetExcludeExtentions()));
+            if (!LoadSettings())
+            {
+                return;
+            }
+
+            DoSearch(new MacOsGrepReferenceFinder(_settings.GetExcludeExtentions()));
         }
 
         // =============================================================================================================
         // Mac/GitGrep
+        
         [MenuItem("Assets/Find References In Project/By GitGrep", true)]
         static bool IsEnabledByGitGrep()
         {
@@ -130,13 +135,19 @@ namespace ReferenceViewer
             {
                 return;
             }
-            DoSearch(new MacOsGitGrepReferenceFinder());
+
+            DoSearch(
+                new MacOsGitGrepReferenceFinder(),
+                additionalInfo: "Assets内のインデックスが作られていない場合など、正しく検索できないことがあります。"
+                                + "正確に検索するにはGrep版を使用して下さい。\n\n"
+                                + "Spotlight is not be able to search correctly, for example, when an file index in Assets is not created. "
+                                + "Please use Grep version to search exactly."
+            );
         }
 
         #endif
 
         #if UNITY_EDITOR_WIN
-        
         // =============================================================================================================
  	    // Win/FindStr
         

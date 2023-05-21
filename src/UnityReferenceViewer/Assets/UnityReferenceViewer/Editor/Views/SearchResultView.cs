@@ -1,18 +1,19 @@
 using UnityEditor;
 using UnityEngine;
+using UnityReferenceViewer.Editor.ValueObjects;
 
-namespace ReferenceViewer
+namespace UnityReferenceViewer.Editor.Views
 {
     internal class SearchResultView
     {
-        private readonly SearchResult _searchResult;
+        private readonly SearchItem _searchItem;
         private readonly GUIStyle _labelStyle = CreateLabelStyle();
         
         bool _isFoldout = true;
 
-        public SearchResultView(SearchResult searchResult)
+        public SearchResultView(SearchItem searchItem)
         {
-            _searchResult = searchResult;
+            _searchItem = searchItem;
         }
 
         private static GUIStyle CreateLabelStyle()
@@ -33,11 +34,11 @@ namespace ReferenceViewer
 
         public void OnGui()
         {
-            var listItem = CreateListItem(_searchResult.Asset, _searchResult.Path);
+            var listItem = CreateListItem(_searchItem.Asset, _searchItem.Path);
 
             // 参照が無い場合はFoldoutではなくButtonで表示する
             // If there is no reference, display with Button instead of Foldout.
-            if (_searchResult.References.Count == 0)
+            if (_searchItem.References.Count == 0)
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.Space(16f);
@@ -45,7 +46,7 @@ namespace ReferenceViewer
 
                 if (GUILayout.Button(listItem, _labelStyle))
                 {
-                    Selection.activeObject = _searchResult.Asset;
+                    Selection.activeObject = _searchItem.Asset;
                     EditorGUIUtility.PingObject(Selection.activeObject);
                 }
 
@@ -58,7 +59,7 @@ namespace ReferenceViewer
             
             if (_isFoldout)
             {
-                foreach (var assetData in _searchResult.References)
+                foreach (var assetData in _searchItem.References)
                 {
                     // 削除されたか、そもそもアセットではない
                     // It was deleted or not an asset.
@@ -79,7 +80,7 @@ namespace ReferenceViewer
             // Select asset in project view when clicking asset.
             if (wasFoldedOut != _isFoldout)
             {
-                Selection.activeObject = _searchResult.Asset;
+                Selection.activeObject = _searchItem.Asset;
                 EditorGUIUtility.PingObject(Selection.activeObject);
             }
         }
