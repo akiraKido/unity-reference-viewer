@@ -7,142 +7,139 @@ This software is released under the MIT License.
 https://opensource.org/licenses/mit-license.php
 */
 
+using System.Linq;
 using UnityEditor;
 
 namespace ReferenceViewer
 {
-	/// <summary>
-	/// 環境ごとに実行内容を切り分け
-	/// Execution contents for target OS.
-	/// </summary>
-	public class ReferenceViewerMenu : EditorWindow
-	{
-#region 設定ファイルのロード
+    /// <summary>
+    /// 環境ごとに実行内容を切り分け
+    /// Execution contents for target OS.
+    /// </summary>
+    public class ReferenceViewerMenu : EditorWindow
+    {
+        // =============================================================================================================
+        // 設定ファイルのロード
 
-		public const string AssetPathFromPluginRoot = "Editor/ReferenceViewerMenu.cs";
+        public const string AssetPathFromPluginRoot = "Editor/ReferenceViewerMenu.cs";
 
-		private static ExcludeSettings settings = null;
-		private static bool LoadSettings()
-		{
-			// インスタンスを経由して自身のファイルパスを取得
-			// Retrieve its own file path via instance.
-			var window = GetWindow<ReferenceViewerMenu>();
-			string path = window.GetSettingFilePath();
-			window.Close();
+        private static ExcludeSettings _settings;
 
-			settings = AssetDatabase.LoadAssetAtPath<ExcludeSettings>(path);
-			if (settings == null)
-			{
-				UnityEngine.Debug.LogError("[ReferenceViewer] Failed to load exclude setting file.");
-				return false;
-			}
-			return true;
-		}
+        private static bool LoadSettings()
+        {
+            // インスタンスを経由して自身のファイルパスを取得
+            // Retrieve its own file path via instance.
+            var window = GetWindow<ReferenceViewerMenu>();
+            string path = window.GetSettingFilePath();
+            window.Close();
 
-		private string GetSettingFilePath()
-		{
-			var thisObject = MonoScript.FromScriptableObject(this);
-			var path = AssetDatabase.GetAssetPath(thisObject);
-			return path.Replace(AssetPathFromPluginRoot, ExcludeSettings.AssetName);
-		}
+            _settings = AssetDatabase.LoadAssetAtPath<ExcludeSettings>(path);
+            if (_settings != null)
+            {
+	            return true;
+            }
+            
+            UnityEngine.Debug.LogError("[ReferenceViewer] Failed to load exclude setting file.");
+            return false;
+        }
 
-#endregion
+        private string GetSettingFilePath()
+        {
+            var thisObject = MonoScript.FromScriptableObject(this);
+            var path = AssetDatabase.GetAssetPath(thisObject);
+            return path.Replace(AssetPathFromPluginRoot, ExcludeSettings.AssetName);
+        }
 
-#if UNITY_EDITOR_OSX
+        private static void DoSearch(IReferenceFinder referenceFinder)
+        {
+            var finder = new ReferenceFinder(referenceFinder, _settings.GetExcludeExtentions());
+            var result = Selection.assetGUIDs
+	            .Select(finder.FindReferencedFiles)
+	            .ToArray();
+            ReferenceViewerWindow.CreateWindow(result);
+        }
 
-#region Mac/Spotlight
+        #if UNITY_EDITOR_OSX
 
-		[MenuItem("Assets/Find References In Project/By Spotlight", true)]
-		static bool IsEnabledBySpotlight()
-		{
-			if (Selection.assetGUIDs == null || Selection.assetGUIDs.Length == 0)
-			{
-				return false;
-			}
-			return true;
-		}
+        // =============================================================================================================
+        // Mac/Spotlight
 
-		[MenuItem("Assets/Find References In Project/By Spotlight", false, 25)]
-		public static void FindReferencesBySpotlight()
-		{
-			if (!LoadSettings())
-			{
-				return;
-			}
+        [MenuItem("Assets/Find References In Project/By Spotlight", true)]
+        static bool IsEnabledBySpotlight()
+        {
+            if (Selection.assetGUIDs == null || Selection.assetGUIDs.Length == 0)
+            {
+                return false;
+            }
 
-			Result result = ReferenceViewerProcessor.FindReferencesByCommand(Result.SearchType.OSX_Spotlight, settings.GetExcludeExtentions());
-			if (result != null)
-			{
-				ReferenceViewerWindow.CreateWindow(result);
-			}
-		}
+            return true;
+        }
 
-#endregion
+        [MenuItem("Assets/Find References In Project/By Spotlight", false, 25)]
+        public static void FindReferencesBySpotlight()
+        {
+            if (!LoadSettings())
+            {
+                return;
+            }
+            DoSearch(new MacOsSpotlightReferenceFinder());
+        }
 
-#region Mac/Grep
+        // =============================================================================================================
+        // Mac/Grep
 
-		[MenuItem("Assets/Find References In Project/By Grep", true)]
-		static bool IsEnabledByGrep()
-		{
-			if (Selection.assetGUIDs == null || Selection.assetGUIDs.Length == 0)
-			{
-				return false;
-			}
-			return true;
-		}
-		
-		[MenuItem("Assets/Find References In Project/By Grep", false, 26)]
-		public static void FindReferencesByGrep()
-		{
-			if (!LoadSettings())
-			{
-				return;
-			}
+        [MenuItem("Assets/Find References In Project/By Grep", true)]
+        static bool IsEnabledByGrep()
+        {
+            if (Selection.assetGUIDs == null || Selection.assetGUIDs.Length == 0)
+            {
+                return false;
+            }
 
-			Result result = ReferenceViewerProcessor.FindReferencesByCommand(Result.SearchType.OSX_Grep, settings.GetExcludeExtentions());
-			if (result != null)
-			{
-				ReferenceViewerWindow.CreateWindow(result);
-			}
-		}
+            return true;
+        }
 
-#endregion
+        [MenuItem("Assets/Find References In Project/By Grep", false, 26)]
+        public static void FindReferencesByGrep()
+        {
+	        if (!LoadSettings())
+	        {
+		        return;
+	        }
+	        
+	        DoSearch(new MacOsGrepReferenceFinder(_settings.GetExcludeExtentions()));
+        }
 
-#region Mac/GitGrep
+        // =============================================================================================================
+        // Mac/GitGrep
+        [MenuItem("Assets/Find References In Project/By GitGrep", true)]
+        static bool IsEnabledByGitGrep()
+        {
+            if (Selection.assetGUIDs == null || Selection.assetGUIDs.Length == 0)
+            {
+                return false;
+            }
 
-		[MenuItem("Assets/Find References In Project/By GitGrep", true)]
-		static bool IsEnabledByGitGrep()
-		{
-			if (Selection.assetGUIDs == null || Selection.assetGUIDs.Length == 0)
-			{
-				return false;
-			}
-			return true;
-		}
+            return true;
+        }
 
-		[MenuItem("Assets/Find References In Project/By GitGrep", false, 27)]
-		public static void FindReferencesByGitGrep()
-		{
-			if (!LoadSettings())
-			{
-				return;
-			}
+        [MenuItem("Assets/Find References In Project/By GitGrep", false, 27)]
+        public static void FindReferencesByGitGrep()
+        {
+            if (!LoadSettings())
+            {
+                return;
+            }
+            DoSearch(new MacOsGitGrepReferenceFinder());
+        }
 
-			Result result = ReferenceViewerProcessor.FindReferencesByCommand(Result.SearchType.OSX_GitGrep, settings.GetExcludeExtentions());
-			if (result != null)
-			{
-				ReferenceViewerWindow.CreateWindow(result);
-			}
-		}
+        #endif
 
-#endregion
-
-#endif
-
-#if UNITY_EDITOR_WIN
-
-#region Win/FindStr
-
+        #if UNITY_EDITOR_WIN
+        
+        // =============================================================================================================
+ 	    // Win/FindStr
+        
 		[MenuItem("Assets/Find References In Project/By FindStr", true)]
 		static bool IsEnabledByFindStr()
 		{
@@ -161,17 +158,12 @@ namespace ReferenceViewer
 				return;
 			}
 
-			Result result = ReferenceViewerProcessor.FindReferencesByCommand(Result.SearchType.WIN_FindStr, settings.GetExcludeExtentions());
-			if (result != null)
-			{
-				ReferenceViewerWindow.CreateWindow(result);
-			}
+			DoSearch(new WindowsFindStrReferenceFinder());
 		}
 
-#endregion
+		// =============================================================================================================
+		// Win/Grep
 
-#region Win/GitGrep
-		
 		[MenuItem("Assets/Find References In Project/By GitGrep", true)]
 		static bool IsEnabledByGitGrep()
 		{
@@ -180,7 +172,8 @@ namespace ReferenceViewer
 				return false;
 			}
 
-			string pathEnv = System.Environment.GetEnvironmentVariable("Path", System.EnvironmentVariableTarget.Process);
+			string pathEnv =
+ System.Environment.GetEnvironmentVariable("Path", System.EnvironmentVariableTarget.Process);
 			if (pathEnv == null || pathEnv.Trim() == "")
 			{
 				return false;
@@ -204,15 +197,13 @@ namespace ReferenceViewer
 				return;
 			}
 
-			Result result = ReferenceViewerProcessor.FindReferencesByCommand(Result.SearchType.WIN_GitGrep, settings.GetExcludeExtentions());
+			Result result =
+ ReferenceViewerProcessor.FindReferencesByCommand(Result.SearchType.WIN_GitGrep, settings.GetExcludeExtentions());
 			if (result != null)
 			{
 				ReferenceViewerWindow.CreateWindow(result);
 			}
 		}
-
-#endregion
-
-#endif
-	}
+        #endif
+    }
 }
