@@ -6,6 +6,7 @@ from distutils.dir_util import copy_tree
 import json
 import semver
 import argparse
+import shutil
 
 script_dir_path = Path(os.path.dirname(os.path.realpath(__file__)))
 root_path = Path(script_dir_path.parent)
@@ -15,6 +16,9 @@ package_path = Path(project_path, "Assets", "UnityReferenceViewer")
 package_json_path = Path(package_path, "package.json")
 
 def copy_files_to_build():
+    if os.path.exists(build_path):
+        shutil.rmtree(build_path)
+    os.mkdir(build_path)
     copy_tree(str(package_path), str(build_path))
 
 def update_version(bump: str):
