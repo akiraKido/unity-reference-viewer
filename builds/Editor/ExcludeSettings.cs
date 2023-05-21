@@ -7,11 +7,12 @@ This software is released under the MIT License.
 https://opensource.org/licenses/mit-license.php
 */
 
-using UnityEngine;
-using UnityEditor;
 using System.Collections.Generic;
+using System.IO;
+using UnityEditor;
+using UnityEngine;
 
-namespace ReferenceViewer
+namespace UnityReferenceViewer.Editor
 {
 	[CreateAssetMenu(menuName = "ReferenceViewer/ExcludeSettings")]
 	public class ExcludeSettings : ScriptableObject
@@ -78,14 +79,20 @@ namespace ReferenceViewer
 			{
 				// ファイルパス指定の場合もAssets/より上の部分が環境依存なのでワイルドカードで解決する
 				// In the case of file path designation too, since it is environment dependent since the part above Assets/, it solves with wild card.
-				excludes[i] = string.Format("*{0}", excludes[i]);
+				excludes[i] = $"*{excludes[i]}";
 			}
 			return excludes.ToArray();
+		}
+
+		public static ExcludeSettings Load(string packageDirectory)
+		{
+			var path = Path.Combine(packageDirectory, AssetName);
+			return AssetDatabase.LoadAssetAtPath<ExcludeSettings>(path);
 		}
 	}
 
 	[CustomEditor(typeof(ExcludeSettings))]
-	public class ExcludeSettingsEditor : Editor
+	public class ExcludeSettingsEditor : UnityEditor.Editor
 	{
 		public override void OnInspectorGUI()
 		{
