@@ -34,7 +34,7 @@ namespace UnityReferenceViewer.Editor.Views
 
         public void OnGui()
         {
-            var listItem = CreateListItem(_searchItem.Asset, _searchItem.Path);
+            var listItem = CreateListItem(_searchItem.Asset, _searchItem.Path, _searchItem.References.Count > 0);
 
             // 参照が無い場合はFoldoutではなくButtonで表示する
             // If there is no reference, display with Button instead of Foldout.
@@ -43,7 +43,6 @@ namespace UnityReferenceViewer.Editor.Views
                 GUILayout.BeginHorizontal();
                 GUILayout.Space(16f);
                 
-
                 if (GUILayout.Button(listItem, _labelStyle))
                 {
                     Selection.activeObject = _searchItem.Asset;
@@ -102,10 +101,16 @@ namespace UnityReferenceViewer.Editor.Views
             GUILayout.EndHorizontal();
         }
         
-        private GUIContent CreateListItem(Object asset, string path)
+        private GUIContent CreateListItem(Object asset, string path, bool? hasReference = null)
         {
             var icon = AssetDatabase.GetCachedIcon(path);
-            return new GUIContent(asset.name, icon, path);
+            var name = asset.name;
+            if (hasReference is false) 
+            {
+                name = $"<color=#808080>{name} <i>No reference</i></color>";
+            }
+            
+            return new GUIContent(name, icon, path);
         }
     }
 }

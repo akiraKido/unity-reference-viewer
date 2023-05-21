@@ -59,7 +59,7 @@ namespace UnityReferenceViewer.Editor.Views
                 .Select(finder.FindReferencedFiles)
                 .ToArray();
             var result = new SearchResult(searchItems, additionalInfo);
-            ReferenceViewerWindow.CreateWindow(result);
+            ReferenceViewerWindow.CreateWindow(finder, result);
         }
 
         #if UNITY_EDITOR_OSX
